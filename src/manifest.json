@@ -1,0 +1,35 @@
+{
+    "manifest_version": 2,
+    "name": "SSO No Phishing",
+    "version": "1.0.0",
+
+   "description": "Detects if a site is trying to phish your Mozilla IAM SSO credentials and automatically blocks it",
+
+    "icons": {
+        "48": "icon.png",
+        "96": "icon@2x.png"
+    },
+
+    "applications": {
+      "gecko": {
+        "id": "@sso-no-phishing",
+        "strict_min_version": "57.0"
+      }
+    },
+
+    "homepage_url": "https://github.com/mozilla/sso-no-phishing",
+
+    "permissions": [
+        "<all_urls>",
+        "browsingData",
+        "storage",
+        "webRequestBlocking",
+        "webRequest",
+        "activeTab",
+        "notifications"
+    ],
+
+    "background": {
+        "scripts": ["bower_components/js-sha256/src/sha256.js", "background.js"]
+    }
+}
