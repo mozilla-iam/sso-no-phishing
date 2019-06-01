@@ -1,17 +1,78 @@
-const SSO_DOMAINS = [
-  "https://auth-dev.mozilla.auth0.com/*",
-  "https://auth.mozilla.auth0.com/*",
-  "https://auth.allizom.org/*",
-  "https://auth.mozilla.com/*"
-];
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/. 
+ *
+ * Author: kang@insecure.ws
+ * */
 
-const SSO_LDAP_CREDENTIALS_URL = "/usernamepassword/login";
+const themes = {
+  'green_sso': {
+    colors: {
+     frame: 'LimeGreen',
+    }
+  },
+  'red_sso': {
+    colors: {
+     frame: 'OrangeRed',
+    }
+  },
+};
+
+var SSO_DOMAINS = [];
+var settings = {
+  "sso_urls": "https://auth-dev.mozilla.auth0.com/*,https://auth.mozilla.auth0.com/*,https://auth.allizom.org/*,https://auth.mozilla.com/*,https://passwordreset.mozilla.org/*",
+  "credentials_url": "https://auth.mozilla.auth0.com/usernamepassword/login",
+  "warning_msg": "Phishing has been detected!"
+};
+
+async function loadSettings() {
+  tmp = await browser.storage.sync.get(["sso_urls", "credentials_url", "warning_msg"]);
+  // No prior settings? keep defaults
+  if (Object.keys(tmp).length === 0) {
+    tmp = settings
+  } else {
+    settings = tmp;
+  }
+  var new_sso_domains = tmp.sso_urls.split(",");
+  if (JSON.stringify(SSO_DOMAINS) !== JSON.stringify(new_sso_domains)) {
+    SSO_DOMAINS = new_sso_domains;
+    // Reregister listener with new URLs
+    browser.webRequest.onBeforeRequest.removeListener(detectSSO);
+    browser.webRequest.onBeforeRequest.addListener(detectSSO, {urls: SSO_DOMAINS}, ["blocking", "requestBody"]);
+  }
+}
+
+// Callback from listener when window/tab changed
+async function colorContainer(activeInfo) {
+  const curTab = await browser.tabs.get(activeInfo.tabId);
+  if (await this.hasGreenSSO(curTab) === true) {
+    this.makeGreenSSO(curTab);
+  } else {
+    browser.theme.reset();
+  }
+}
+
+async function hasGreenSSO(tab) {
+  if (tab.url === undefined) {
+    return false;
+  }
+  for (i in SSO_DOMAINS) {
+    if (tab.url.startsWith(SSO_DOMAINS[i].slice(0, -2))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function makeGreenSSO(tab, theme=themes['green_sso']) {
+  browser.theme.update(tab.windowId, theme);
+}
 
 // Callback from listener to detect SSO logins
 async function detectSSO (options) {
   let parsedUrl = new URL(options.url);
   // Capture credentials hash
-  if (options.method == "POST" && parsedUrl.pathname == SSO_LDAP_CREDENTIALS_URL) {
+  if (options.method == "POST" && parsedUrl.pathname == settings.credentials_url) {
     let postData = JSON.parse(decodeURIComponent(String.fromCharCode.apply(null,
       new Uint8Array(options.requestBody.raw[0].bytes))));
     let credentials_hash = sha256(postData.password);
@@ -21,11 +82,17 @@ async function detectSSO (options) {
     delete postData
     console.log('Stored new genuine credential hash for user');
   }
+  // Make tab green
+  var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
+  var tab = await browser.tabs.get(q[0].id);
+  // set this tab/window theme and record it
+  // auto remove theme on other ones
+  this.makeGreenSSO(tab);
 }
 
 var traverse = function(o, fn) {
   for (var i in o) {
-    fn.apply(this,[i,o[i]]);  
+    fn.apply(this,[i,o[i]]);
     if (o[i] !== null && typeof(o[i])=="object") {
       traverse(o[i], fn);
     }
@@ -35,10 +102,11 @@ var traverse = function(o, fn) {
 // Callback from listener to detect phishing
 // Performance critical (takes all urls, blocking mode, so it gotta be fast)
 async function detectPhishing (options) {
+  loadSettings();
   if ((options.method == "POST") && (options.requestBody !== null)) {
     let parsedUrl = new URL(options.url);
     for (i in SSO_DOMAINS) {
-      if ((SSO_DOMAINS[i] == parsedUrl.origin+'/*') && parsedUrl.pathname == SSO_LDAP_CREDENTIALS_URL) {
+      if ((SSO_DOMAINS[i] == parsedUrl.origin+'/*') && parsedUrl.pathname == settings.credentials_url) {
         // This is our genuine domain, don't block this
         return
       }
@@ -60,7 +128,7 @@ async function detectPhishing (options) {
     //var res = await checkForCredentials(postData);
     var res = false;
     traverse(postData, function(k,v) {
-      if ((sha256(k) == creds) || (sha256(v) == creds)) { 
+      if ((sha256(k) == creds) || (sha256(v) == creds)) {
         console.log("WARNING: Credentials found in untrusted POST - cancelling request for", options.url);
         res = true;
       }
@@ -68,11 +136,14 @@ async function detectPhishing (options) {
     })
 
     if (res) {
+      var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
+      var tab = await browser.tabs.get(q[0].id);
+      this.makeColoredContainer(tab, themes['red_sso']);
       browser.notifications.create('phishingDetected', {
         title: 'Phishing attack blocked',
-        message: 'A website that claims to be your genuine SSO website has attempted to gather your credentials. Please contact <a href="mailto:infosec@mozilla.com">infosec@mozilla.com</a> immediately. Thanks!',
+        message: settings.warning_msg,
         type: 'basic'
-      }); // send this to mozdef automatically
+      });
       return { cancel: true };
     } else {
     }
@@ -80,6 +151,8 @@ async function detectPhishing (options) {
 }
 
 (async function init () {
+  await loadSettings();
   browser.webRequest.onBeforeRequest.addListener(detectSSO, {urls: SSO_DOMAINS}, ["blocking", "requestBody"]);
   browser.webRequest.onBeforeRequest.addListener(detectPhishing, {urls: ["<all_urls>"]}, ["blocking", "requestBody"]);
+  browser.tabs.onActivated.addListener(colorContainer);
 })();

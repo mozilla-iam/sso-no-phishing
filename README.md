@@ -4,11 +4,29 @@
 
 ## How does it work?
 
-This extension detects your logins to the genuine Mozilla IAM SSO and records a hash representation of your credentials (not
+This extension detects your logins to the genuine SSO and records a hash representation of your credentials (not
 the actual credentials).
-Every time you post data to a website, the extension verifies that it does not contain your Mozilla IAM SSO credentials.
-If it does and does not match the genuine Mozilla IAM SSO domains, it will warn you that this is probably a phishing
-attack before continuing (you can choose to ignore the warning at your own risk)
+
+Every time you post data to a website, the extension verifies that it does not contain your SSO credentials.
+
+If it does match the genuine SSO domains then the tab will look green.
+If it does NOT match, the tab will look red and a warning will be displayed. The request will also be canceled. If this
+happen you should still change your credentials, just in case.
+
+
+## Security considerations
+
+This addon does NOT and CANNOT guarantee the prevention of credentials leak. An sophisticated attacker with knowledge of
+this addon will be able to BYPASS the verification.
+
+Nevertheless, this addon will catch all common cases. Additionally, there is no known attack that currently bypass this addon.
+Note that all methods that I can think of, including registering keys as they're typed, can be bypassed by an attacker
+in one way or another. The best protection is common sense and a password manager that only pre-fill passwords where
+needed.
+
+Note that this addon does store your credentials using a SHA256 hash (at this time).
+
+Finally, DO NOT ENTER YOUR CREDENTIALS MANUALLY AND ESPECIALLY NOT IF THE TAB IS NOT GREEN ;-)
 
 ## Testing
 
