@@ -43,8 +43,10 @@ async function loadSettings() {
 }
 
 // Callback from listener when window/tab changed
-async function colorContainer(activeInfo) {
-  const curTab = await browser.tabs.get(activeInfo.tabId);
+// Should make this not await if possible
+async function colorContainer() {
+  var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
+  var curTab = await browser.tabs.get(q[0].id);
   if (await this.hasGreenSSO(curTab) === true) {
     this.makeGreenSSO(curTab);
   } else {
@@ -103,6 +105,7 @@ var traverse = function(o, fn) {
 // Performance critical (takes all urls, blocking mode, so it gotta be fast)
 async function detectPhishing (options) {
   loadSettings();
+  colorContainer();
   if ((options.method == "POST") && (options.requestBody !== null)) {
     let parsedUrl = new URL(options.url);
     for (i in SSO_DOMAINS) {
@@ -155,4 +158,5 @@ async function detectPhishing (options) {
   browser.webRequest.onBeforeRequest.addListener(detectSSO, {urls: SSO_DOMAINS}, ["blocking", "requestBody"]);
   browser.webRequest.onBeforeRequest.addListener(detectPhishing, {urls: ["<all_urls>"]}, ["blocking", "requestBody"]);
   browser.tabs.onActivated.addListener(colorContainer);
+  browser.windows.onFocusChanged.addListener(colorContainer);
 })();
