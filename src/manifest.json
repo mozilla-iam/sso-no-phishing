@@ -21,7 +21,7 @@
       "page": "options.html"
     },
 
-    "homepage_url": "https://github.com/mozilla/sso-no-phishing",
+    "homepage_url": "https://github.com/mozilla-iam/sso-no-phishing",
 
     "permissions": [
         "<all_urls>",
