@@ -7,16 +7,20 @@
 
 const themes = {
   'green_sso': {
+    sso_no_phishing: true,
     colors: {
      frame: 'LimeGreen',
     }
   },
   'red_sso': {
+    sso_no_phishing: true,
     colors: {
      frame: 'OrangeRed',
     }
   },
 };
+
+var userDefaultTheme;
 
 var SSO_DOMAINS = [];
 var settings = {
@@ -50,7 +54,9 @@ async function colorContainer() {
   if (await this.hasGreenSSO(curTab) === true) {
     this.makeGreenSSO(curTab);
   } else {
-    browser.theme.reset();
+    if (userDefaultTheme !== undefined) {
+      browser.theme.update(curTab.windowId, userDefaultTheme);
+    }
   }
 }
 
@@ -67,6 +73,10 @@ async function hasGreenSSO(tab) {
 }
 
 async function makeGreenSSO(tab, theme=themes['green_sso']) {
+  var tmp = await browser.theme.getCurrent(tab.windowId);
+  if (tmp.sso_no_phishing === undefined) {
+    userDefaultTheme = tmp;
+  }
   browser.theme.update(tab.windowId, theme);
 }
 
@@ -153,10 +163,21 @@ async function detectPhishing (options) {
   }
 }
 
+async function onSuspend() {
+  // Cleanup on extension unload
+  // This is necessary as otherwise this value will be set to a default theme, and the tabs.onActivated listener will in
+  // turn attempt to set the theme to what was saved. Most likely also related to https://bugzilla.mozilla.org/show_bug.cgi?id=1415267
+  userDefaultTheme = undefined;
+}
+
 (async function init () {
   await loadSettings();
+  // See https://bugzilla.mozilla.org/show_bug.cgi?id=1415267 on why we're saving the "default" theme (which is not
+  // necessarily the default but it's whatever the user has
+  userDefaultTheme = await browser.theme.getCurrent();
   browser.webRequest.onBeforeRequest.addListener(detectSSO, {urls: SSO_DOMAINS}, ["blocking", "requestBody"]);
   browser.webRequest.onBeforeRequest.addListener(detectPhishing, {urls: ["<all_urls>"]}, ["blocking", "requestBody"]);
   browser.tabs.onActivated.addListener(colorContainer);
-  browser.windows.onFocusChanged.addListener(colorContainer);
+  //browser.windows.onFocusChanged.addListener(colorContainer);
+  browser.runtime.onSuspend.addListener(onSuspend)
 })();
