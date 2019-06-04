@@ -51,12 +51,23 @@ async function loadSettings() {
 async function colorContainer() {
   var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
   var curTab = await browser.tabs.get(q[0].id);
-  if (await this.hasGreenSSO(curTab) === true) {
-    this.makeGreenSSO(curTab);
+  if (await hasGreenSSO(curTab) === true) {
+    makeGreenSSO(curTab);
   } else {
-    if (userDefaultTheme !== undefined) {
-      browser.theme.update(curTab.windowId, userDefaultTheme);
-    }
+    restoreTheme(curTab);
+  }
+}
+
+// Restore theme to browser default
+// Note this is a workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=1415267
+// Trying to re-enabled existing user theme addons also fails (race condition?) even if you wait for them to be
+// re-applied for some reason
+async function restoreTheme(tab) {
+  if ((userDefaultTheme !== undefined) && (Object.keys(userDefaultTheme).length > 0)) {
+    browser.theme.update(tab.windowId, userDefaultTheme);
+  } else {
+    // nothing worked, full reset
+    browser.theme.reset();
   }
 }
 
@@ -84,7 +95,7 @@ async function makeGreenSSO(tab, theme=themes['green_sso']) {
 async function detectSSO (options) {
   let parsedUrl = new URL(options.url);
   // Capture credentials hash
-  if (options.method == "POST" && parsedUrl.pathname == settings.credentials_url) {
+  if (options.method == "POST" && (parsedUrl.origin+parsedUrl.pathname) == settings.credentials_url) {
     let postData = JSON.parse(decodeURIComponent(String.fromCharCode.apply(null,
       new Uint8Array(options.requestBody.raw[0].bytes))));
     let credentials_hash = sha256(postData.password);
@@ -94,12 +105,10 @@ async function detectSSO (options) {
     delete postData
     console.log('Stored new genuine credential hash for user');
   }
-  // Make tab green
+  // Make tab green as this function only trigger on SSO sites
   var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
   var tab = await browser.tabs.get(q[0].id);
-  // set this tab/window theme and record it
-  // auto remove theme on other ones
-  this.makeGreenSSO(tab);
+  makeGreenSSO(tab);
 }
 
 var traverse = function(o, fn) {
@@ -119,7 +128,7 @@ async function detectPhishing (options) {
   if ((options.method == "POST") && (options.requestBody !== null)) {
     let parsedUrl = new URL(options.url);
     for (i in SSO_DOMAINS) {
-      if ((SSO_DOMAINS[i] == parsedUrl.origin+'/*') && parsedUrl.pathname == settings.credentials_url) {
+      if ((SSO_DOMAINS[i] == parsedUrl.origin+'/*') && (parsedUrl.origin+parsedUrl.pathname) == settings.credentials_url) {
         // This is our genuine domain, don't block this
         return
       }
@@ -138,36 +147,29 @@ async function detectPhishing (options) {
     }
 
     // Check for credentials data
-    //var res = await checkForCredentials(postData);
-    var res = false;
-    traverse(postData, function(k,v) {
+    traverse(postData, async function(k,v) {
       if ((sha256(k) == creds) || (sha256(v) == creds)) {
         console.log("WARNING: Credentials found in untrusted POST - cancelling request for", options.url);
-        res = true;
+        var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
+        var tab = await browser.tabs.get(q[0].id);
+        makeGreenSSO(tab, themes['red_sso']);
+        browser.notifications.create('phishingDetected', {
+          title: 'Phishing attack detected',
+          message: settings.warning_msg,
+          type: 'basic'
+        });
+        return { cancel: true };
       }
-    // debug matches  console.log(sha256(k), sha256(v), creds);
     })
-
-    if (res) {
-      var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
-      var tab = await browser.tabs.get(q[0].id);
-      this.makeColoredContainer(tab, themes['red_sso']);
-      browser.notifications.create('phishingDetected', {
-        title: 'Phishing attack blocked',
-        message: settings.warning_msg,
-        type: 'basic'
-      });
-      return { cancel: true };
-    } else {
-    }
   }
 }
 
-async function onSuspend() {
-  // Cleanup on extension unload
-  // This is necessary as otherwise this value will be set to a default theme, and the tabs.onActivated listener will in
-  // turn attempt to set the theme to what was saved. Most likely also related to https://bugzilla.mozilla.org/show_bug.cgi?id=1415267
-  userDefaultTheme = undefined;
+async function themeUpdated(info) {
+  // This allow us to record when someone else/user changed the theme so that we re-apply their theme after we put ours
+  // Part of the workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=1415267
+  if ((info.theme.sso_no_phishing === undefined) && (Object.keys(info.theme).length > 0)) {
+    userDefaultTheme = info.theme;
+  }
 }
 
 (async function init () {
@@ -178,6 +180,6 @@ async function onSuspend() {
   browser.webRequest.onBeforeRequest.addListener(detectSSO, {urls: SSO_DOMAINS}, ["blocking", "requestBody"]);
   browser.webRequest.onBeforeRequest.addListener(detectPhishing, {urls: ["<all_urls>"]}, ["blocking", "requestBody"]);
   browser.tabs.onActivated.addListener(colorContainer);
-  //browser.windows.onFocusChanged.addListener(colorContainer);
-  browser.runtime.onSuspend.addListener(onSuspend)
+  browser.windows.onFocusChanged.addListener(colorContainer);
+  browser.theme.onUpdated.addListener(themeUpdated);
 })();
