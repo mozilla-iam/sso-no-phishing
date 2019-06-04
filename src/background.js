@@ -58,6 +58,20 @@ async function colorContainer() {
   }
 }
 
+/*
+ * requires permission management
+ *
+async function checkThemeInstalled() {
+  let extensions = await browser.management.getAll();
+  for (let extension of extensions) {
+    if (extension.type === 'theme' && extension.enabled) {
+      return true;
+    }
+  }
+  return false;
+}
+*/
+
 // Restore theme to browser default
 // Note this is a workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=1415267
 // Trying to re-enabled existing user theme addons also fails (race condition?) even if you wait for them to be
@@ -65,10 +79,11 @@ async function colorContainer() {
 async function restoreTheme(tab) {
   if ((userDefaultTheme !== undefined) && (Object.keys(userDefaultTheme).length > 0)) {
     browser.theme.update(tab.windowId, userDefaultTheme);
-  } else {
-    // nothing worked, full reset
-    browser.theme.reset();
   }
+  // If the theme is lost for any other reason we're done here
+  // because of bug 1415267 we can't call browser.theme.reset()
+  // and because of another issue during addon install we also can't detect/grab the theme at install time if the user
+  // check "allow addon in private window". Erm.
 }
 
 async function hasGreenSSO(tab) {
@@ -173,10 +188,10 @@ async function themeUpdated(info) {
   await loadSettings();
   // See https://bugzilla.mozilla.org/show_bug.cgi?id=1415267 on why we're saving the "default" theme (which is not
   // necessarily the default but it's whatever the user has
-  userDefaultTheme = await browser.theme.getCurrent();
+  // userDefaultTheme = await browser.theme.getCurrent();
   browser.webRequest.onBeforeRequest.addListener(detectSSO, {urls: SSO_DOMAINS}, ["blocking", "requestBody"]);
   browser.webRequest.onBeforeRequest.addListener(detectPhishing, {urls: ["<all_urls>"]}, ["blocking", "requestBody"]);
+  browser.theme.onUpdated.addListener(themeUpdated);
   browser.tabs.onActivated.addListener(colorContainer);
   browser.windows.onFocusChanged.addListener(colorContainer);
-  browser.theme.onUpdated.addListener(themeUpdated);
 })();
