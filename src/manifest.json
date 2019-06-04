@@ -13,7 +13,7 @@
     "applications": {
       "gecko": {
         "id": "@sso-no-phishing",
-        "strict_min_version": "57.0"
+        "strict_min_version": "66.0"
       }
     },
 
