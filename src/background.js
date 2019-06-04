@@ -105,10 +105,7 @@ async function detectSSO (options) {
     delete postData
     console.log('Stored new genuine credential hash for user');
   }
-  // Make tab green as this function only trigger on SSO sites
-  var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
-  var tab = await browser.tabs.get(q[0].id);
-  makeGreenSSO(tab);
+  colorContainer();
 }
 
 var traverse = function(o, fn) {
