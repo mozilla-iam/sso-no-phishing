@@ -21,6 +21,7 @@ const themes = {
 };
 
 var userDefaultTheme;
+var browserInfo;
 
 var SSO_DOMAINS = [];
 var settings = {
@@ -79,6 +80,17 @@ async function checkThemeInstalled() {
 async function restoreTheme(tab) {
   if ((userDefaultTheme !== undefined) && (Object.keys(userDefaultTheme).length > 0)) {
     browser.theme.update(tab.windowId, userDefaultTheme);
+  } else {
+    // While MDN says FF58+ supports all the theme stuff, in 67 at least it definitely doesnt work.
+    // FF 69 (nightly atm) has it working. So in the mean time, detect what you run and adjust accordingly
+    let version = browserInfo.version.match(/\d+/)[0];
+    if (version < 69) {
+      let current = await browser.theme.getCurrent();
+      if (current.sso_no_phishing !== undefined) {
+        console.log("WARNING: Firefox < 69 does not let us figure out which theme you're running correctly, so we're going to reset to the default instead. If you weren't running default, sorry!");
+        browser.theme.reset();
+      }
+    }
   }
   // If the theme is lost for any other reason we're done here
   // because of bug 1415267 we can't call browser.theme.reset()
@@ -86,6 +98,8 @@ async function restoreTheme(tab) {
   // check "allow addon in private window". Erm.
 }
 
+// This function takes the opportunity that it's checking you domain already
+// in order to re-recording the current default theme, in case you do not support the onUpdated() listener for themes
 async function hasGreenSSO(tab) {
   if (tab.url === undefined) {
     return false;
@@ -189,6 +203,7 @@ async function themeUpdated(info) {
   // See https://bugzilla.mozilla.org/show_bug.cgi?id=1415267 on why we're saving the "default" theme (which is not
   // necessarily the default but it's whatever the user has
   // userDefaultTheme = await browser.theme.getCurrent();
+  browserInfo = await browser.runtime.getBrowserInfo();
   browser.webRequest.onBeforeRequest.addListener(detectSSO, {urls: SSO_DOMAINS}, ["blocking", "requestBody"]);
   browser.webRequest.onBeforeRequest.addListener(detectPhishing, {urls: ["<all_urls>"]}, ["blocking", "requestBody"]);
   browser.theme.onUpdated.addListener(themeUpdated);
