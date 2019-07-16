@@ -30,6 +30,15 @@ var settings = {
   "warning_msg": "Phishing has been detected!"
 };
 
+async function noError( test ) {
+    try {
+        if(typeof test === "function") return test();
+        else return test || null;
+    } catch (e) {
+        return null;
+    }
+};
+
 async function loadSettings() {
   tmp = await browser.storage.sync.get(["sso_urls", "credentials_url", "warning_msg"]);
   // No prior settings? keep defaults
@@ -113,10 +122,17 @@ async function hasGreenSSO(tab) {
 }
 
 async function makeGreenSSO(tab, theme=themes['green_sso']) {
+  if (tab === undefined) {
+    var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
+    var tab = await browser.tabs.get(q[0].id);
+  }
   var tmp = await browser.theme.getCurrent(tab.windowId);
   if (tmp.sso_no_phishing === undefined) {
     userDefaultTheme = tmp;
   }
+  // This will generate the error "An unexpected property was found in the WebExtension manifest." but won't actually do
+  // anything wrong. That's because the manifest schema validation is computed together with the browser theme and we're
+  // adding a value that doesn't normally exist. In reality, it's handled like a warning.
   browser.theme.update(tab.windowId, theme);
 }
 
@@ -127,7 +143,7 @@ async function detectSSO (options) {
   if (options.method == "POST" && (parsedUrl.origin+parsedUrl.pathname) == settings.credentials_url) {
     let postData = JSON.parse(decodeURIComponent(String.fromCharCode.apply(null,
       new Uint8Array(options.requestBody.raw[0].bytes))));
-    let salt = btoa(window.crypto.getRandomValues(new Uint32Array(10)).toString());
+    let salt = btoa(window.crypto.getRandomValues(new Uint32Array(6)).toString());
     let credentials_hash = sha256(postData.password + salt);
     localStorage.setItem('credentials_salt', salt);
     localStorage.setItem('credentials_hash', credentials_hash);
@@ -139,18 +155,9 @@ async function detectSSO (options) {
   colorContainer();
 }
 
-var traverse = function(o, fn) {
-  for (var i in o) {
-    fn.apply(this,[i,o[i]]);
-    if (o[i] !== null && typeof(o[i])=="object") {
-      traverse(o[i], fn);
-    }
-  }
-}
-
 // Callback from listener to detect phishing
 // Performance critical (takes all urls, blocking mode, so it gotta be fast)
-async function detectPhishing (options) {
+function detectPhishing (options) {
   loadSettings();
   colorContainer();
   if ((options.method == "POST") && (options.requestBody !== null)) {
@@ -176,21 +183,22 @@ async function detectPhishing (options) {
     }
 
     // Check for credentials data
-    traverse(postData, async function(k,v) {
-      if ((sha256(k + salt) == creds) || (sha256(v + salt) == creds)) {
+    var blocked = false;
+    for (index in postData) {
+      if ((sha256(postData[index] + salt) == creds) || (sha256(index + salt) == creds)) {
+        blocked = true;
         console.log("WARNING: Credentials found in untrusted POST - cancelling request for", options.url);
-        var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
-        var tab = await browser.tabs.get(q[0].id);
-        makeGreenSSO(tab, themes['red_sso']);
+        makeGreenSSO(undefined, themes['red_sso']);
         browser.notifications.create('phishingDetected', {
           title: 'Phishing attack detected',
           message: settings.warning_msg,
           type: 'basic'
         });
-        return { cancel: true };
       }
-    })
+    }
   }
+  console.log("done");
+  return { cancel: blocked };
 }
 
 async function themeUpdated(info) {
