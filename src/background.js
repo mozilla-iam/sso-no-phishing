@@ -127,7 +127,9 @@ async function detectSSO (options) {
   if (options.method == "POST" && (parsedUrl.origin+parsedUrl.pathname) == settings.credentials_url) {
     let postData = JSON.parse(decodeURIComponent(String.fromCharCode.apply(null,
       new Uint8Array(options.requestBody.raw[0].bytes))));
-    let credentials_hash = sha256(postData.password);
+    let salt = btoa(window.crypto.getRandomValues(new Uint32Array(10)).toString());
+    let credentials_hash = sha256(postData.password + salt);
+    localStorage.setItem('credentials_salt', salt);
     localStorage.setItem('credentials_hash', credentials_hash);
     localStorage.setItem('credentials_login', postData.username);
     delete postData.password
@@ -160,6 +162,7 @@ async function detectPhishing (options) {
       }
     }
     var creds = localStorage.getItem('credentials_hash');
+    var salt = localStorage.getItem('salt');
     if (creds == null) {
       console.log("Did not record genuine credential hash yet, can't find phishing attacks yet");
       return
@@ -174,7 +177,7 @@ async function detectPhishing (options) {
 
     // Check for credentials data
     traverse(postData, async function(k,v) {
-      if ((sha256(k) == creds) || (sha256(v) == creds)) {
+      if ((sha256(k + salt) == creds) || (sha256(v + salt) == creds)) {
         console.log("WARNING: Credentials found in untrusted POST - cancelling request for", options.url);
         var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
         var tab = await browser.tabs.get(q[0].id);
