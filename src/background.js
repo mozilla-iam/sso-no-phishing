@@ -197,7 +197,6 @@ function detectPhishing (options) {
       }
     }
   }
-  console.log("done");
   return { cancel: blocked };
 }
 
