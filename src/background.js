@@ -169,7 +169,7 @@ function detectPhishing (options) {
       }
     }
     var creds = localStorage.getItem('credentials_hash');
-    var salt = localStorage.getItem('salt');
+    var salt = localStorage.getItem('credentials_salt');
     if (creds == null) {
       console.log("Did not record genuine credential hash yet, can't find phishing attacks yet");
       return
