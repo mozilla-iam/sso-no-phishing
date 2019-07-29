@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this
+   - file, You can obtain one at http://mozilla.org/MPL/2.0/. -->
+<html xmlns="http://www.w3.org/1999/xhtml" dir="ltr" lang="en-US">
+  <head>
+    <title>Warning: Potential Security Risk Ahead</title>
+    <link rel="stylesheet" href="chrome://browser/skin/aboutNetError.css" type="text/css" media="all" />
+    <!-- If the location of the favicon is changed here, the FAVICON_ERRORPAGE_URL symbol in
+         toolkit/components/places/src/nsFaviconService.h should be updated. -->
+    <link rel="icon" id="favicon" href="chrome://global/skin/icons/warning.svg" />
+    <link rel="localization" href="browser/aboutCertError.ftl" />
+    <link rel="localization" href="branding/brand.ftl" />
+  </head>
+
+  <body dir="ltr" class="caution" code="SEC_ERROR_PHISHING_DETECTED">
+    <!-- ERROR ITEM CONTAINER (removed during loading to avoid bug 39098) -->
+    <div id="errorContainer">
+      <div id="errorPageTitlesContainer">
+        <span id="ept_PhishingError">Did Not Connect: Potential Security Issue</span>
+      </div>
+      <div id="errorTitlesContainer">
+        <h1 id="et_generic">Potential phishing attack.</h1>
+        <h1 id="et_PhishingError">Did Not Connect: Potential Security Issue</h1>
+      </div>
+      <div id="errorDescriptionsContainer">
+        <div id="ed_PhishingError"><p>The connection to this website was blocked because it appear to be phishing your
+          SSO credentials.</p><ul><li>Please contact your administrator or security team to inform them of this problem.</li></ul></div>
+      </div>
+      <div id="errorDescriptions2Container">
+      </div>
+      <div id="whatCanYouDoAboutItTitleContainer">
+        <div id="edd_PhishingError"><strong>What can you do about it?</strong></div>
+      </div>
+      <div id="whatCanYouDoAboutItContainer">
+      </div>
+      <span id="stsReturnButtonText">Go Back</span>
+    </div>
+
+    <!-- PAGE CONTAINER (for styling purposes only) -->
+    <div id="errorPageContainer" class="container">
+      <div id="text-container" style="margin-top: calc(-213.5px + 50vh);">
+        <!-- Error Title -->
+        <div class="title">
+          <h1 class="title-text">Warning: Potential Security Risk Ahead</h1>
+        </div>
+
+        <!-- LONG CONTENT (the section most likely to require scrolling) -->
+        <div id="errorLongContent">
+
+          <!-- Short Description -->
+          <div id="errorShortDesc">
+            <p id="errorShortDescText">We detected an issue and did not continue to the website.</p>
+          </div>
+
+          <div id="errorShortDesc2">
+              <p id="errorShortDescText2">It's likely the website you are trying to reach is the result of a phishing
+              attack. Attackers could try to steal information like your passwords, emails, or credit card details.</p>
+          </div>
+
+          <div id="errorWhatToDoTitle">
+              <p id="errorWhatToDoTitleText" style="font-weight: bold;">What can you do about it?</p>
+          </div>
+
+          <div id="errorWhatToDo">
+          <p>
+          You should inform your administrators or security team about this issue.
+          </p>
+          </div>
+
+          <div id="errorWhatToDo2">
+              <p id="errorWhatToDoText2"></p>
+          <div id="errorLongDesc"></div>
+
+          <div id="learnMoreContainer" style="display: block;">
+            <p><a id="learnMoreLink" target="new" data-telemetry-id="learn_more_link" href="https://infosec.mozilla.org/guidelines/phishing.html">Learn more…</a></p>
+          </div>
+        </div>
+
+        <div id="certErrorAndCaptivePortalButtonContainer" class="button-container"><button id="returnButton"
+            class="primary" data-telemetry-id="return_button_top" autofocus="true" onclick="window.history.back();">Go Back (Recommended)</button>
+        </div>
+      </div>
+
+    </div>
+  </body>
+  <script src="chrome://browser/content/aboutNetError.js"></script>
+</html>
