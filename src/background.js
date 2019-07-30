@@ -157,7 +157,7 @@ async function detectSSO (options) {
 
 // Callback from listener to detect phishing
 // Performance critical (takes all urls, blocking mode, so it gotta be fast)
-function detectPhishing (options) {
+async function detectPhishing (options) {
   loadSettings();
   colorContainer();
   if ((options.method == "POST") && (options.requestBody !== null)) {
@@ -188,16 +188,17 @@ function detectPhishing (options) {
       if ((sha256(postData[index] + salt) == creds) || (sha256(index + salt) == creds)) {
         blocked = true;
         console.log("WARNING: Credentials found in untrusted POST - cancelling request for", options.url);
-        makeGreenSSO(undefined, themes['red_sso']);
         browser.notifications.create('phishingDetected', {
           title: 'Phishing attack detected',
           message: settings.warning_msg,
           type: 'basic'
         });
+        var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
+        browser.tabs.update(q[0].id, {active: true, url: "/warning.html"});
       }
     }
   }
-  return { cancel: blocked };
+  return { cancel: blocked};
 }
 
 async function themeUpdated(info) {

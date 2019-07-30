@@ -37,5 +37,8 @@
 
     "background": {
         "scripts": ["sha256.js", "background.js"]
-    }
+    },
+    "web_accessible_resources": [
+      "warning.html"
+    ]
 }
