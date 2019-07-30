@@ -27,7 +27,7 @@ var SSO_DOMAINS = [];
 var settings = {
   "sso_urls": "https://auth-dev.mozilla.auth0.com/*,https://auth.mozilla.auth0.com/*,https://auth.allizom.org/*,https://auth.mozilla.com/*,https://passwordreset.mozilla.org/*",
   "credentials_url": "https://auth.mozilla.auth0.com/usernamepassword/login",
-  "warning_msg": "Phishing has been detected!"
+  "autoblock": true
 };
 
 async function noError( test ) {
@@ -40,7 +40,7 @@ async function noError( test ) {
 };
 
 async function loadSettings() {
-  tmp = await browser.storage.sync.get(["sso_urls", "credentials_url", "warning_msg"]);
+  tmp = await browser.storage.sync.get(["sso_urls", "credentials_url", "autoblock"]);
   // No prior settings? keep defaults
   if (Object.keys(tmp).length === 0) {
     tmp = settings
@@ -140,7 +140,7 @@ async function makeGreenSSO(tab, theme=themes['green_sso']) {
 async function detectSSO (options) {
   let parsedUrl = new URL(options.url);
   // Capture credentials hash
-  if (options.method == "POST" && (parsedUrl.origin+parsedUrl.pathname) == settings.credentials_url) {
+  if (settings.autoblock && options.method == "POST" && (parsedUrl.origin+parsedUrl.pathname) == settings.credentials_url) {
     let postData = JSON.parse(decodeURIComponent(String.fromCharCode.apply(null,
       new Uint8Array(options.requestBody.raw[0].bytes))));
     let salt = btoa(window.crypto.getRandomValues(new Uint32Array(6)).toString());
@@ -159,6 +159,10 @@ async function detectSSO (options) {
 // Performance critical (takes all urls, blocking mode, so it gotta be fast)
 async function detectPhishing (options) {
   loadSettings();
+  // autoblock deactivated?
+  if (settings.autoblock === false) {
+    return
+  }
   colorContainer();
   if ((options.method == "POST") && (options.requestBody !== null)) {
     let parsedUrl = new URL(options.url);
@@ -188,11 +192,6 @@ async function detectPhishing (options) {
       if ((sha256(postData[index] + salt) == creds) || (sha256(index + salt) == creds)) {
         blocked = true;
         console.log("WARNING: Credentials found in untrusted POST - cancelling request for", options.url);
-        browser.notifications.create('phishingDetected', {
-          title: 'Phishing attack detected',
-          message: settings.warning_msg,
-          type: 'basic'
-        });
         var q = await browser.tabs.query({active: true, windowId: browser.windows.WINDOW_ID_CURRENT});
         browser.tabs.update(q[0].id, {active: true, url: "/warning.html"});
       }

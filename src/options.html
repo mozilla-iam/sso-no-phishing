@@ -18,25 +18,18 @@ https://passwordreset.mozilla.org/*
           </textarea>
         </label>
         <br/>
+        <label><strong>Phishing detection</strong>
+          <input type="checkbox" id="autoblock" name="autoblock" value="autoblock">Automatically block requests when phishing is detected</button>
+        </label>
+        <br/>
+        <br/>
         <label><strong>SSO Credentials Capture URL</strong>
+          <p><em>This option is only useful if phishing detection is enabled</em></p>
           <input autocomplete="false" autofocus="true" required="true" size="50" type="text"
                  id="credentials_url" value="https://auth.mozilla.auth0.com/usernamepassword/login">
         </label>
         <br/>
-        <label><strong>Warning message when a phishing attempt is detected</strong>
-          <textarea rows="10" cols="80" id="warning_msg">
-<!DOCTYPE html>
-<title>Phishing protection warning</title>
-<link rel="stylesheet" type="text/css" href="/warning.css">
-<span id="warning">
-   It looks like you have entered your Mozilla LDAP account password on a sign-in page that is not genuine. The request
-   has been blocked, however, this does not guarantee your password has not been compromised.
-   Please <a href="https://passwordreset.mozilla.org/">reset your password now</a> to protect your account and contact
-   <a href="mailto:infosec@mozilla.com">Mozilla Infosec</a>.
-</span>
-<a href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Enterprise%20Information%20Security&component=Investigation">Report phishing site</a>
-          </textarea>
-        </label>
+        <br/>
         <button type="submit">Save</button>
     </form>
     <script src="options.js"></script>

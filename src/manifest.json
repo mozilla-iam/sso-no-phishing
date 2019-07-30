@@ -30,7 +30,6 @@
         "webRequestBlocking",
         "webRequest",
         "activeTab",
-        "notifications",
         "tabs",
         "theme"
     ],
